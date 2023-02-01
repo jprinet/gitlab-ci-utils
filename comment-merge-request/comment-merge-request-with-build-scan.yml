@@ -1,0 +1,103 @@
+.tools: &tools >
+  function assignMergeRequestIdFromEnv() {
+    # parse CI_MERGE_REQUEST_ID from CI_OPEN_MERGE_REQUESTS ('<ORG>/<PROJECT>!<CI_MERGE_REQUEST_ID>')
+    mergeRequestId=$(echo ${CI_OPEN_MERGE_REQUESTS} | sed 's/.*\!//')
+  }
+
+  function assignBuildScanLinkFromLog() {
+    # Looking for log line just after "Publishing build scan" message
+    local urlGetLog="${GITLAB_API_BASE_URL}/api/v4/projects/${CI_PROJECT_ID}/jobs/${CI_JOB_ID}/trace"
+  
+    buildScanLinkFromLog=$(curl --silent --location "${urlGetLog}" --header "PRIVATE-TOKEN: ${GITLAB_API_TOKEN}" | grep -A1 "Publishing build scan..." | tail -n 1 || true)
+  }
+
+  function commentMergeRequest() {
+    local mergeRequestId=$1
+    local message=$2
+    local urlCommentMergeRequest="${GITLAB_API_BASE_URL}/api/v4/projects/${CI_PROJECT_ID}/merge_requests/${mergeRequestId}/notes"
+
+    echo "DEBUG - Commenting MR(${mergeRequestId}) with Build Scan Link=${message}"
+    curl --silent --location --request POST "${urlCommentMergeRequest}" --header "PRIVATE-TOKEN: ${GITLAB_API_TOKEN}" --header "Content-Type: application/json" --data-raw "{ \"body\": \"${message}\" }" > /dev/null
+  }
+  
+  function fetchBuildScanData() {
+    local buildScanLink=$1
+  
+    if [ ! -z "${GRADLE_ENTERPRISE_API_BASE_URL}" ]
+    then
+      local buildScanId=$(echo ${buildScanLink} | sed 's/.*\///')
+      if [ ! -z "${buildScanId}" ]
+      then
+        local urlGetBuildScanData="${GRADLE_ENTERPRISE_API_BASE_URL}/api/builds/${buildScanId}"
+        local buildScanData=$(curl --silent --header "authorization: Bearer ${GRADLE_ENTERPRISE_API_TOKEN}" ${urlGetBuildScanData})
+        if [ ! -z "${buildScanData}" ]
+        then
+          local buildToolType=$(jq -r ".buildToolType" <<< ${buildScanData})
+          local buildToolVersion=$(jq -r ".buildToolVersion" <<< ${buildScanData})
+    
+          local attributesSuffix="gradle-attributes"
+          local keyProject="rootProjectName"
+          local keyTasks="requestedTasks"
+          if [ "${buildToolType}" == "maven" ]
+          then
+            attributesSuffix="maven-attributes"
+            keyProject="topLevelProjectName"
+            keyTasks="requestedGoals"
+          fi
+      
+          local urlGetBuildScanAttributesData="${GRADLE_ENTERPRISE_API_BASE_URL}/api/builds/${buildScanId}/${attributesSuffix}"
+          local buildScanAttributesData=$(curl --silent --header "authorization: Bearer ${GRADLE_ENTERPRISE_API_TOKEN}" ${urlGetBuildScanAttributesData})
+          if [ ! -z "${buildScanAttributesData}" ]
+          then
+            local projectName=$(jq -r ".${keyProject}" <<< ${buildScanAttributesData})
+            local tasks=$(jq -r ".${keyTasks}[]" <<< ${buildScanAttributesData})
+            local hasFailed=$(jq -r ".hasFailed" <<< ${buildScanAttributesData})
+            local status=":ok:"
+            if [ "${hasFailed}" == "true" ]
+            then
+              status=":x:"
+            fi
+  
+            enrichedMsg="| project | build tool type | build tool version | tasks | status | link |\n| ------ | ------ | ------ | ------ | ------ | ------ |\n| ${projectName} | ${buildToolType} | ${buildToolVersion} | ${tasks} | ${status} | [link](${buildScanLink}) |"
+            echo "${enrichedMsg}"
+          fi
+        fi
+      fi
+    fi
+  }
+  
+  function comment_merge_request() {
+    GITLAB_API_BASE_URL=$CI_API_V4_URL
+    GITLAB_API_TOKEN=$1
+    GRADLE_ENTERPRISE_API_BASE_URL=$2
+    GRADLE_ENTERPRISE_API_TOKEN=$3
+
+    assignMergeRequestIdFromEnv
+    if [ -z "${mergeRequestId}" ]
+    then
+      return 0
+    fi
+
+    for i in {1..20}; 
+    do
+      # build log is not available immediately
+      echo "DEBUG - Looking for build scan link $i / 20"
+      assignBuildScanLinkFromLog
+      if [ ! -z "${buildScanLinkFromLog}" ] 
+      then
+        fetchBuildScanData ${buildScanLinkFromLog}
+        if [ ! -z "${enrichedMsg}" ] 
+        then
+          commentMergeRequest ${mergeRequestId} "${enrichedMsg}"
+        else
+          commentMergeRequest ${mergeRequestId} "Build Scan: ${buildScanLinkFromLog}"
+        fi
+        return 0
+      fi
+  
+      sleep 3
+    done
+  }
+
+before_script:
+  - *tools
