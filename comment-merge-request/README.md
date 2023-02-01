@@ -37,7 +37,7 @@ _GRADLE_ENTERPRISE_URL_ and _GRADLE_ENTERPRISE_API_TOKEN_ parameters can be omit
 [...]
 
 include:
-  - 'comment-merge-request-with-build-scan.yml'
+  - 'https://raw.githubusercontent.com/jprinet/gitlab-ci-utils/main/comment-merge-request/comment-merge-request-with-build-scan.yml'
 
 [...]
 
