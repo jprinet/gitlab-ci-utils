@@ -67,10 +67,10 @@
   }
   
   function comment_merge_request() {
-    GITLAB_API_BASE_URL=$CI_API_V4_URL
-    GITLAB_API_TOKEN=$1
-    GRADLE_ENTERPRISE_API_BASE_URL=$2
-    GRADLE_ENTERPRISE_API_TOKEN=$3
+    GITLAB_API_BASE_URL=$1
+    GITLAB_API_TOKEN=$2
+    GRADLE_ENTERPRISE_API_BASE_URL=$3
+    GRADLE_ENTERPRISE_API_TOKEN=$4
 
     assignMergeRequestIdFromEnv
     if [ -z "${mergeRequestId}" ]

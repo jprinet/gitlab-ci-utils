@@ -26,6 +26,7 @@ An enriched mode allow to comment as well some advanced build information (see s
 ![Advanced mode](enriched.png)
 
 ## Inputs
+- _GITLAB_API_URL_: Gitlab API URL (usually available as CI_API_V4_URL)
 - _GITLAB_API_TOKEN_: access token to Gitlab API
 - _GRADLE_ENTERPRISE_URL_: Gradle Enterprise URL
 - _GRADLE_ENTERPRISE_API_TOKEN_: access token to Gradle Enterprise API
@@ -45,5 +46,5 @@ build-job:
   stage: build
   script:
     - ./gradlew build
-    - comment_merge_request ${GITLAB_API_TOKEN} ${GE_URL} ${GE_API_TOKEN}
+    - comment_merge_request ${CI_API_V4_URL} ${GITLAB_API_TOKEN} ${GE_URL} ${GE_API_TOKEN}
 ```
