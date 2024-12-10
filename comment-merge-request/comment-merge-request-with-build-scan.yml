@@ -23,13 +23,13 @@
   function fetchBuildScanData() {
     local buildScanLink=$1
   
-    if [ ! -z "${GRADLE_ENTERPRISE_API_BASE_URL}" ]
+    if [ ! -z "${DEVELOCITY_API_BASE_URL}" ]
     then
       local buildScanId=$(echo ${buildScanLink} | sed 's/.*\///')
       if [ ! -z "${buildScanId}" ]
       then
-        local urlGetBuildScanData="${GRADLE_ENTERPRISE_API_BASE_URL}/api/builds/${buildScanId}"
-        local buildScanData=$(curl --silent --header "authorization: Bearer ${GRADLE_ENTERPRISE_API_TOKEN}" ${urlGetBuildScanData})
+        local urlGetBuildScanData="${DEVELOCITY_API_BASE_URL}/api/builds/${buildScanId}"
+        local buildScanData=$(curl --silent --header "authorization: Bearer ${DEVELOCITY_API_TOKEN}" ${urlGetBuildScanData})
         if [ ! -z "${buildScanData}" ]
         then
           local buildToolType=$(jq -r ".buildToolType" <<< ${buildScanData})
@@ -45,8 +45,8 @@
             keyTasks="requestedGoals"
           fi
       
-          local urlGetBuildScanAttributesData="${GRADLE_ENTERPRISE_API_BASE_URL}/api/builds/${buildScanId}/${attributesSuffix}"
-          local buildScanAttributesData=$(curl --silent --header "authorization: Bearer ${GRADLE_ENTERPRISE_API_TOKEN}" ${urlGetBuildScanAttributesData})
+          local urlGetBuildScanAttributesData="${DEVELOCITY_API_BASE_URL}/api/builds/${buildScanId}/${attributesSuffix}"
+          local buildScanAttributesData=$(curl --silent --header "authorization: Bearer ${DEVELOCITY_API_TOKEN}" ${urlGetBuildScanAttributesData})
           if [ ! -z "${buildScanAttributesData}" ]
           then
             local projectName=$(jq -r ".${keyProject}" <<< ${buildScanAttributesData})
@@ -68,8 +68,8 @@
   function comment_merge_request() {
     GITLAB_API_BASE_URL=$1
     GITLAB_API_TOKEN=$2
-    GRADLE_ENTERPRISE_API_BASE_URL=$3
-    GRADLE_ENTERPRISE_API_TOKEN=$4
+    DEVELOCITY_API_BASE_URL=$3
+    DEVELOCITY_API_TOKEN=$4
 
     assignMergeRequestIdFromEnv
     if [ -z "${mergeRequestId}" ]
